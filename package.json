@@ -1,0 +1,23 @@
+{
+  "name": "tron.io",
+  "version": "1.0.0",
+  "description": "Trying to make multiplayer tron for TIc",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Christiandv/MultiPlayerTron.git"
+  },
+  "author": "Christian Vaughan",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Christiandv/MultiPlayerTron/issues"
+  },
+  "homepage": "https://github.com/Christiandv/MultiPlayerTron#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
