@@ -2,14 +2,16 @@ var socket;
 
 
 var id = 0;
+let backgroundColor;
 var started = false; 
 var hasLost = false;
 var hasWon = false;
 var readied = false;
 
 function setup(){
+    backgroundColor =  color(51);
     createCanvas(500,500);
-    background(51);
+    background(backgroundColor);
 
     // actually connect from client side, need to update when not running locally
     socket = io.connect('http://127.0.0.1:3000');
@@ -38,7 +40,6 @@ function drawPlayers(data){
     var size= 0;
     for(var i = 0; i < data.length; i ++){
         fill(data[i].color.r,data[i].color.g,data[i].color.b);
-      
         square(data[i].x,data[i].y,data[i].size);
         console.log("drawing");
     }
@@ -62,8 +63,15 @@ function draw(){
     }else{
         if(readied){
             // game will start soon banner
+           
+            fill(255);
+            textSize(50);
+            text("Get Ready!",100,100);
         }else{
             // please press any button so say you are ready
+            fill(255);
+            textSize(50);
+            text("Please Ready Up",100,100);
         }
     }
  
@@ -91,6 +99,9 @@ function keyPressed() {
         }
         socket.emit('input', data);
     }else if(!readied){
+        readied = true;
+        background(backgroundColor);
+
         socket.emit('ready');
         console.log("sending ready");
     }
@@ -107,7 +118,7 @@ function lost(){
 }
 
 function start(){
-    background(51);
+    background(backgroundColor);
     // make a banner that says start?
     console.log("START");
     started = true;
