@@ -27,7 +27,8 @@ var io = socket(server);
 // lots of set up, will probably end up in a "game" object
 // so that we can separate out into rooms 
 var Connections = [];
-var numPlayers = 0;
+var numConnections = 0; //counts players and spectators
+var numPlayers = 0;//only counts players
 var readyPlayers = 0;
 var stillAlivePlayers = 0;
 let speed = 3;
@@ -57,13 +58,14 @@ function newConnection(socket){
      players and after that you dont get to control anything. 
      */
     
+     if(numConnections < maxPlayers){
     // create a new player and save connection info
     thisPlayer = new Player(startingLocations[numPlayers].x,
         startingLocations[numPlayers].y,
         startingLocations[numPlayers].dir,
-        new Color( Math.floor(Math.random() * 255),
+        new Color( Math.floor(Math.random() * 255,),
         Math.floor(Math.random() * 255),
-        Math.floor(Math.random() * 255)));
+        Math.floor(Math.random() * 255)),false);
        
     var node = {
         id: socket.id,
@@ -81,13 +83,31 @@ function newConnection(socket){
     socket.emit('reset', data)
 
     numPlayers++;
+    numConnections++;
+    console.log("numPlayers: "+numPlayers);
+    console.log("numConnections:"+numConnections);
+     } else { //to make spectator
+        thisSpectator = new Player(-100,-100,0, new Color(0,0,0), true);
+        var node = {
+            id: socket.id,
+            socket: socket,
+            player: thisSpectator
+        };
 
+        //Connections[numPlayers] = node;
+
+        numConnections++;
+        console.log("new spectator");
+        console.log("numPlayers: "+numPlayers+", numConnections: "+numConnections);
+    }
     socket.on('input', handleInput);
 
     function handleInput(data){
         // Make this better by using a has map with the socket id as the key
         // need to use an id number to know which player sent this and wants to turn
-        Connections[data.id].player.turn(data.dir);
+        if(data.id >= 0){
+            Connections[data.id].player.turn(data.dir);
+        }
     }
 
     socket.on('ready', playerReadied);
@@ -100,10 +120,10 @@ function newConnection(socket){
             gameOver = false;
             walls = [];
             // the boundaries 
-            walls.push(new Wall(0,-10,500,10));
-            walls.push(new Wall(0, 500,500,10));
-            walls.push(new Wall(-10,0,10,500));
-            walls.push(new Wall(500,0,10,500));
+            // walls.push(new Wall(0,-10,500,10));
+            // walls.push(new Wall(0, 500,500,10));
+            // walls.push(new Wall(-10,0,10,500));
+            // walls.push(new Wall(500,0,10,500));
             io.sockets.emit('start');
         }
     }
@@ -135,12 +155,17 @@ class Color{
 class Player{
     
     // location, direction, color. Direction corresponds to unit circle
-    constructor(x, y, direction, color) {
+    constructor(x, y, direction, color, isSpectator) {
         this.hasLost = false; // to know if this player should stop moving
         this.color = color;
         this.x = x;
         this.y = y;
+        this.isSpectator = isSpectator;
         
+        if(isSpectator == true){
+            this.hasLost = true;
+        }
+
         switch(direction){
             case 0:
                 this.xspeed = speed;
@@ -180,6 +205,19 @@ class Player{
     move() {
         this.x += this.xspeed;
         this.y += this.yspeed;
+
+        if(this.x > 500){
+            this.x = 0;
+        }
+        if(this.x < 0){
+            this.x = 500;
+        }
+        if(this.y < 0){
+            this.y = 500;
+        }
+        if(this.y > 500){
+            this.y = 0;
+        }
     }
 
     // safe turning, 0 is right, 1 is up, 2 is left, 3 is down. Unit circle
