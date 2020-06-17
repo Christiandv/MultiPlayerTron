@@ -16,7 +16,7 @@ function setup(){
     // actually connect from client side, need to update when not running locally
     socket = io.connect('http://127.0.0.1:3000');
     socket.on('reset', reset);
-    socket.on('playerLocUpdate', drawPlayers);
+    socket.on('playerLocUpdate', drawGameData);
     socket.on('start', start);
     socket.on('youLost', lost);
     socket.on('youWin', win);
@@ -29,13 +29,21 @@ function reset(data){
     var hasLost = false;
     var hasWon = false;
     var readied = false;
-    background(51);
+    background(backgroundColor);
+}
+
+function drawRoom(data){
+    // draw background
+
+    // draw banner, ready/readied
+
+    // show other players and whether or not they have readied up?
 }
 
 
 // draws the new location of a player to the screen
 // expects: color, x, y,
-function drawPlayers(data){
+function drawGameData(data){
     noStroke();
     var size= 0;
     for(var i = 0; i < data.length; i ++){

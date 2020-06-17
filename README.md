@@ -7,6 +7,8 @@
 
  Run "node server.js" to start up the server. Currently clients connect through localhost:3000 until we get to the point of hosting. 
 
+ You will also need Express.js to run the project. Their website is : expressjs.com
+
  Press any keyboard button to start! requires 2+ players (currently do not handle the case of the 5th person joining, later they will be spectators)
 
  Check out the issues tab on github to claim things to work on. 

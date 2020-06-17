@@ -10,10 +10,14 @@ class Wall{
     }
 }
 
+//var roomController = require('./roomController.js');
 var express = require('express'); // the express library
 var socket = require('socket.io'); // everything for the socket library
 
 var app = express();
+
+
+
  // starts the server listening on port 3k
 var server = app.listen(3000);
 
@@ -56,7 +60,7 @@ function newConnection(socket){
      there should be a check to see if we have reached the max num of 
      players and after that you dont get to control anything. 
      */
-    
+
     // create a new player and save connection info
     thisPlayer = new Player(startingLocations[numPlayers].x,
         startingLocations[numPlayers].y,
@@ -83,6 +87,7 @@ function newConnection(socket){
     numPlayers++;
 
     socket.on('input', handleInput);
+    
 
     function handleInput(data){
         // Make this better by using a has map with the socket id as the key
@@ -110,8 +115,41 @@ function newConnection(socket){
 
     // handle what we do if a client disconnects
     socket.on('disconnect', function() {
+        
         console.log('Client has disconnected');
     });
+}
+
+
+
+
+// the info needed to keep track of a given room
+class RoomState{
+    constructor(){
+        var readyPlayers = 0;
+        var maxPlayers = 4;
+    }
+}
+
+// all of the info to run this current round of the game
+class GameState{
+    constructor(players){
+        var numPlayers = players.length;
+        var readyPlayers = 0;
+        var stillAlivePlayers = players.length;
+        var gameOver = false;
+        var startingLocations = [
+            {x:100, y:100, dir:0},
+            {x:400, y:100, dir:3},
+            {x:100, y:400, dir:1},
+            {x:400, y:400, dir:2}];
+        var maxPlayers = 4;
+        var walls = [];
+        walls.push(new Wall(0,-10,500,10));
+        walls.push(new Wall(0, 500,500,10));
+        walls.push(new Wall(-10,0,10,500));
+        walls.push(new Wall(500,0,10,500));
+    }
 }
 
 
