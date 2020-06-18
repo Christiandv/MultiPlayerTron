@@ -66,7 +66,7 @@ function newConnection(socket){
         new Color( Math.floor(Math.random() * 255,),
         Math.floor(Math.random() * 255),
         Math.floor(Math.random() * 255)),false);
-       
+     
     var node = {
         id: socket.id,
         socket: socket,
@@ -74,7 +74,7 @@ function newConnection(socket){
     };
     
     Connections[numPlayers] = node;
-  
+    
     var data = {
         id: numPlayers
     }
@@ -131,7 +131,19 @@ function newConnection(socket){
     // handle what we do if a client disconnects
     socket.on('disconnect', function() {
         console.log('Client has disconnected');
-    });
+            for(var i = 0; i < Connections.length; i++){//searches for disconnected player in the array
+                if(Connections[i].id == socket.id){
+                    //has located the disconnected connection in the array
+                    console.log("id found at i = "+i);
+                    //Connections.splice(i,1);//removes disconnected connection from array
+                
+                    Connections[i].player.hasLost = true;//loses when disconnects
+                    stillAlivePlayers--;
+                }
+                
+            }
+        }
+    );
 }
 
 
@@ -161,6 +173,7 @@ class Player{
         this.x = x;
         this.y = y;
         this.isSpectator = isSpectator;
+
         
         if(isSpectator == true){
             this.hasLost = true;
