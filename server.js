@@ -116,16 +116,15 @@ function newConnection(socket){
         readyPlayers ++;
 
         if(readyPlayers== numPlayers && numPlayers > 1){// this should run once, when the game starts
-            stillAlivePlayers = numPlayers;
-            gameOver = false;
-            walls = [];
-            // the boundaries 
-            // walls.push(new Wall(0,-10,500,10));
-            // walls.push(new Wall(0, 500,500,10));
-            // walls.push(new Wall(-10,0,10,500));
-            // walls.push(new Wall(500,0,10,500));
-            io.sockets.emit('start');
+            io.sockets.emit('countdown3');//sends immediately
+            setTimeout(countdown, 1000);//sends after 1 sec
+            setTimeout(countdown, 2000);//sends after 2 secs
+            console.log('GO');
+            
+            setTimeout(start, 3000);//sends after 3 secs
+            
         }
+        
     }
 
     // handle what we do if a client disconnects
@@ -146,6 +145,21 @@ function newConnection(socket){
     );
 }
 
+function countdown(){
+    io.sockets.emit('countdown3');
+}
+
+function start(){
+    stillAlivePlayers = numPlayers;
+    gameOver = false;
+    walls = [];
+    // the boundaries 
+    // walls.push(new Wall(0,-10,500,10));
+    // walls.push(new Wall(0, 500,500,10));
+    // walls.push(new Wall(-10,0,10,500));
+    // walls.push(new Wall(500,0,10,500));
+    io.sockets.emit('start');
+}
 
 // because I cannot reference processing types in the server code
 class Color{

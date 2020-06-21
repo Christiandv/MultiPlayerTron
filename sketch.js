@@ -2,6 +2,7 @@ var socket;
 
 
 var id = -1; //id of -1 denotes spectator
+var countdown = 4;
 let backgroundColor;
 var started = false; 
 var hasLost = false;
@@ -17,6 +18,9 @@ function setup(){
     socket = io.connect('http://127.0.0.1:3000');
     socket.on('reset', reset);
     socket.on('playerLocUpdate', drawPlayers);
+    socket.on('countdown3', countdown3);
+    socket.on('countdown2', countdown2);
+    socket.on('countdown1', countdown1);
     socket.on('start', start);
     socket.on('youLost', lost);
     socket.on('youWin', win);
@@ -46,8 +50,8 @@ function drawPlayers(data){
 }
 
 
-
 function draw(){
+    console.log("draw()")
     if(started){
         if(id < 0){
             // indicates spectator mode
@@ -66,7 +70,15 @@ function draw(){
             textSize(50);
             text("You Win!",100,100);
         }
-    }else{
+    } else if (countdown < 4){
+        
+            background(backgroundColor);
+            fill(255);
+            textSize(50);
+            text(countdown,100,100); 
+            console.log(countdown); 
+           
+    } else{
         if(id < 0){
             // spectator mode
            
@@ -80,6 +92,7 @@ function draw(){
             fill(255);
             textSize(50);
             text("Get Ready!",100,100);
+           
         }else{
             // please press any button so say you are ready
             fill(255);
@@ -128,6 +141,22 @@ function win(){
 
 function lost(){
     hasLost = true;
+}
+
+function countdown3(){
+    // count 3
+    countdown = countdown - 1;
+    console.log("countdown3 is running: "+ countdown);
+}
+
+function countdown2(){
+    // count 2
+    countdown = 2;
+}
+
+function countdown1(){
+    // count 1
+   countdown = 1;
 }
 
 function start(){
