@@ -8,6 +8,13 @@ var hasLost = false;
 var hasWon = false;
 var readied = false;
 
+var currentPage;
+
+var nameInput;
+var roomCodeInput;
+var submitButton;
+
+
 function setup(){
     backgroundColor =  color(51);
     createCanvas(500,500);
@@ -15,23 +22,103 @@ function setup(){
 
     // actually connect from client side, need to update when not running locally
     socket = io.connect('http://127.0.0.1:3000');
+    currentPage = 'MainPage';
+
+    // move these so they are only active when needed
+    /*
     socket.on('reset', reset);
     socket.on('playerLocUpdate', drawGameData);
     socket.on('start', start);
     socket.on('youLost', lost);
     socket.on('youWin', win);
+*/
+    socket.on('rejectLogin', failedLogin);
+    socket.on('successfulLogin', successfulLogin);
+    var data = {
+        nameError:'',
+        roomError:'',
+        nameInput: '',
+        roomInput: ''
+    };
+    renderMainPage(data);
 }
 
-function reset(data){
-    console.log("was given id: " + id);
-    id = data.id;
-    var started = false; 
-    var hasLost = false;
-    var hasWon = false;
-    var readied = false;
+// draw method for the hub screen 
+function renderMainPage(errors){
+    // draw background
     background(backgroundColor);
+    // draw title
+   
+   
+    fill(255,165,0);
+    textSize(60);
+    text("TIC TRON", 80, 100);
+
+    fill(255,255,255);
+    textSize(30);
+
+    // input boxes
+    text("Enter your name:", 70, 250);
+    nameInput = createInput();
+    nameInput.position(100,300);
+    nameInput.value(errors.nameInput);
+
+    fill(255,70,0);
+    textSize(14);
+    text(errors.nameError,70,310);
+
+    fill(255,255,255);
+    textSize(30);
+    text("Enter roomcode:", 70, 350);
+    roomCodeInput = createInput();
+    roomCodeInput.position(100,400);
+    roomCodeInput.value(errors.roomInput);
+
+    fill(255,70,0);
+    textSize(14);
+    text(errors.roomError, 70,410);
+
+    submitButton = createButton("login");
+    submitButton.position(150, 450);
+    submitButton.mousePressed(attemptLogin);
 }
 
+// sends over the data that was collected from the user
+function attemptLogin(){
+    // package up the strings
+    var data = {
+        name: nameInput.value(),
+        roomCode: roomCodeInput.value()
+    };
+    // send to the server
+    socket.emit('loginAttempt', data);
+}
+
+// should give data about why the login was rejected (invalud room code, too short a name/long)
+function failedLogin(data){
+    // you did not give good login info
+    renderMainPage(data);
+    // render error reason
+    console.log('failed login');
+}
+
+function successfulLogin(data){
+    console.log('good login');
+    // you have logged in, should recieve room code as confirmation
+
+    // clean up the main page stuff like deleting inputfields
+    nameInput.remove();
+    roomCodeInput.remove();
+    submitButton.remove();
+    // set up listeners for the room info/readying
+
+
+}
+
+
+
+
+// draws the screen for when you are in a room but the game has not started
 function drawRoom(data){
     // draw background
 
@@ -41,7 +128,19 @@ function drawRoom(data){
 }
 
 
+function reset(data){
+    console.log("was given id: " + id);
+    id = data.id;
+    var started = false; 
+    var hasLost = false;
+    var hasWon = false;
+    var readied = false;
+    //background(backgroundColor);
+}
+
+
 // draws the new location of a player to the screen
+// called when the server sends new data and only then
 // expects: color, x, y,
 function drawGameData(data){
     noStroke();
@@ -54,8 +153,18 @@ function drawGameData(data){
 }
 
 
-
+// REWORK THIS, NEEDS TO BE SPLIT UP
 function draw(){
+    if(currentPage === 'MainPage'){
+
+    }else if (currentPage === 'InRoom'){
+
+    }else if(currentPage === 'InGame'){
+
+    }else{
+        console.log('Incorrect page variable');
+    }
+    /*
     if(started){
         if(hasLost){
             // draw a you lose banner
@@ -81,8 +190,8 @@ function draw(){
             textSize(50);
             text("Please Ready Up",100,100);
         }
-    }
- 
+    } 
+    */
 }
 
 function keyPressed() {
@@ -108,12 +217,19 @@ function keyPressed() {
         socket.emit('input', data);
     }else if(!readied){
         readied = true;
-        background(backgroundColor);
+        //background(backgroundColor);
 
         socket.emit('ready');
         console.log("sending ready");
     }
     
+}
+
+function gameOver(){
+    // turn off game liseners
+
+    // return to the room screen
+
 }
 
 

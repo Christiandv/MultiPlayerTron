@@ -10,149 +10,6 @@ class Wall{
     }
 }
 
-//var roomController = require('./roomController.js');
-var express = require('express'); // the express library
-var socket = require('socket.io'); // everything for the socket library
-
-var app = express();
-
-
-
- // starts the server listening on port 3k
-var server = app.listen(3000);
-
-// serve up the public folder
-app.use(express.static('public'));
-// test 
-console.log("My socket server is running");
-
-var io = socket(server);
-
-// lots of set up, will probably end up in a "game" object
-// so that we can separate out into rooms 
-var Connections = [];
-var numPlayers = 0;
-var readyPlayers = 0;
-var stillAlivePlayers = 0;
-let speed = 3;
-var gameOver = false;
-var startingLocations = [
-    {x:100, y:100, dir:0},
-    {x:400, y:100, dir:3},
-    {x:100, y:400, dir:1},
-    {x:400, y:400, dir:2}];
-var maxPlayers = 4;
-var walls = [];
-
-
-// handle the event that someone connects
-io.sockets.on('connection', newConnection);
-
-//starts the game loop
-setInterval(update, 33);
-
-// handle new connection being made given socket 
-function newConnection(socket){
-    console.log('new connection: ' + socket.id);
-
-    /*
-     some of the following is only needed if you are actually playing
-     there should be a check to see if we have reached the max num of 
-     players and after that you dont get to control anything. 
-     */
-
-    // create a new player and save connection info
-    thisPlayer = new Player(startingLocations[numPlayers].x,
-        startingLocations[numPlayers].y,
-        startingLocations[numPlayers].dir,
-        new Color( Math.floor(Math.random() * 255),
-        Math.floor(Math.random() * 255),
-        Math.floor(Math.random() * 255)));
-       
-    var node = {
-        id: socket.id,
-        socket: socket,
-        player: thisPlayer
-    };
-    
-    Connections[numPlayers] = node;
-  
-    var data = {
-        id: numPlayers
-    }
-
-    // tell the client to reset + give it its player number/id within the game
-    socket.emit('reset', data)
-
-    numPlayers++;
-
-    socket.on('input', handleInput);
-    
-
-    function handleInput(data){
-        // Make this better by using a has map with the socket id as the key
-        // need to use an id number to know which player sent this and wants to turn
-        Connections[data.id].player.turn(data.dir);
-    }
-
-    socket.on('ready', playerReadied);
-    function playerReadied(){
-        console.log("player readied");
-        readyPlayers ++;
-
-        if(readyPlayers== numPlayers && numPlayers > 1){// this should run once, when the game starts
-            stillAlivePlayers = numPlayers;
-            gameOver = false;
-            walls = [];
-            // the boundaries 
-            walls.push(new Wall(0,-10,500,10));
-            walls.push(new Wall(0, 500,500,10));
-            walls.push(new Wall(-10,0,10,500));
-            walls.push(new Wall(500,0,10,500));
-            io.sockets.emit('start');
-        }
-    }
-
-    // handle what we do if a client disconnects
-    socket.on('disconnect', function() {
-        
-        console.log('Client has disconnected');
-    });
-}
-
-
-
-
-// the info needed to keep track of a given room
-class RoomState{
-    constructor(){
-        var readyPlayers = 0;
-        var maxPlayers = 4;
-    }
-}
-
-// all of the info to run this current round of the game
-class GameState{
-    constructor(players){
-        var numPlayers = players.length;
-        var readyPlayers = 0;
-        var stillAlivePlayers = players.length;
-        var gameOver = false;
-        var startingLocations = [
-            {x:100, y:100, dir:0},
-            {x:400, y:100, dir:3},
-            {x:100, y:400, dir:1},
-            {x:400, y:400, dir:2}];
-        var maxPlayers = 4;
-        var walls = [];
-        walls.push(new Wall(0,-10,500,10));
-        walls.push(new Wall(0, 500,500,10));
-        walls.push(new Wall(-10,0,10,500));
-        walls.push(new Wall(500,0,10,500));
-    }
-}
-
-
 // because I cannot reference processing types in the server code
 class Color{
     constructor(r,g,b){
@@ -167,6 +24,126 @@ class Color{
             g:this.g,
             b:this.b};
     }
+}
+
+
+// data we want to hold about a client, used after they have actually logged in
+class Client{
+    constructor(socket, name, roomNumber){
+        this.socket = socket;
+        this.name = name;
+        this.roomNumber = roomNumber;
+    }
+}
+
+// the data that a room needs to have
+// TODO: HOSTS
+class Room{
+    constructor(roomNumber/*, host*/){
+        this.roomNumber = roomNumber;
+        this.playerList = []; // the list of socket ids for players
+        this.spectators = []; // the list of socket ids for spectators
+       // this.host = host; // the host of this room 
+        this.gameInProgress = false;
+        // change this
+        this.numPlayers = 0;
+        this.readyPlayers = 0;
+        
+    }
+    static maxPlayers = 4;
+
+    newGame(){
+        this.game = new GameState(playerList);
+    }
+
+    update(){
+        if(this.gameInProgress){
+            this.game.update();
+        }
+    }
+}
+
+// all of the info to run this current round of the game
+class GameState{
+
+    static speed = 3;
+    static startingLocations = [
+        {x:100, y:100, dir:0},
+        {x:400, y:100, dir:3},
+        {x:100, y:400, dir:1},
+        {x:400, y:400, dir:2}];
+    
+    constructor(players){
+        this.numPlayers = players.length;
+        this.readyPlayers = 0;
+        this.stillAlivePlayers = players.length;
+        this.gameOver = false;
+       
+        this.walls = [];
+        this.walls.push(new Wall(0,-10,500,10));
+        this.walls.push(new Wall(0, 500,500,10));
+        this.walls.push(new Wall(-10,0,10,500));
+        this.walls.push(new Wall(500,0,10,500));
+    }
+
+    // update loop for the game, should expand to include all current games
+    update(){
+    if(readyPlayers == numPlayers && numPlayers != 0 && !gameOver){
+        // the game is being played
+        let data = [];
+        for(let i = 0; i < numPlayers; i++){
+            // only move and stuff if you are still in play
+            if(!Connections[i].player.hasLost){
+                Connections[i].player.move();
+                // check collisions
+                for(var j = 0; j < walls.length; j++){
+                    if(Connections[i].player.collide(walls[j])){
+                        Connections[i].player.hasLost = true;
+                        io.to(Connections[i].id).emit('youLost');
+                        stillAlivePlayers --;
+                    }
+                }
+                // make the wall behind you
+                walls.push(new Wall(Connections[i].player.x,
+                    Connections[i].player.y,
+                    Connections[i].player.size,
+                    Connections[i].player.size));
+
+                // add data about character location/color to data packet
+                var p = {
+                    x:Connections[i].player.x,
+                    y:Connections[i].player.y,
+                    size: Connections[i].player.size,
+                    color: Connections[i].player.color.packageUp()
+                };
+                data.push(p);
+            }
+        }
+        // send the data about player locations to all players
+        io.sockets.emit('playerLocUpdate',data);
+
+        // if we have 1 or 0 players left the game is over
+        if(stillAlivePlayers < 2){
+            gameOver = true;
+            // we have a single winner
+            if(stillAlivePlayers == 1){
+                for(let i = 0; i < numPlayers; i++){
+                    if(!Connections[i].player.hasLost){
+                        // this is the winner
+                        io.to(Connections[i].id).emit('youWin');
+                    }else{
+                        // tell the others who won? host? specators?
+                    }
+                }
+            }else if (stillAlivePlayers == 0){
+                // we have a tie
+            }
+        }
+    }
+}
+
+
+    
 }
 
 // theserver keeps track of all player info
@@ -252,59 +229,172 @@ class Player{
 
 }
 
-// update loop for the game, should expand to include all current games
-function update(){
-    if(readyPlayers == numPlayers && numPlayers != 0 && !gameOver){
-        // the game is being played
-        var data = [];
-        for(let i = 0; i < numPlayers; i++){
-            // only move and stuff if you are still in play
-            if(!Connections[i].player.hasLost){
-                Connections[i].player.move();
-                // check collisions
-                for(var j = 0; j < walls.length; j++){
-                    if(Connections[i].player.collide(walls[j])){
-                        Connections[i].player.hasLost = true;
-                        io.to(Connections[i].id).emit('youLost');
-                        stillAlivePlayers --;
-                    }
-                }
-                // make the wall behind you
-                walls.push(new Wall(Connections[i].player.x,
-                    Connections[i].player.y,
-                    Connections[i].player.size,
-                    Connections[i].player.size));
 
-                // add data about character location/color to data packet
-                var p = {
-                    x:Connections[i].player.x,
-                    y:Connections[i].player.y,
-                    size: Connections[i].player.size,
-                    color: Connections[i].player.color.packageUp()
-                };
-                data.push(p);
+
+
+//var roomController = require('./roomController.js');
+var express = require('express'); // the express library
+var socket = require('socket.io'); // everything for the socket library
+var app = express();
+
+
+
+ // starts the server listening on port 3k
+var server = app.listen(3000);
+
+// serve up the public folder
+app.use(express.static('public'));
+// test 
+console.log("My socket server is running");
+
+var io = socket(server);
+
+// lots of set up, will probably end up in a "game" object
+// so that we can separate out into rooms 
+var Connections = [];
+
+var openRooms = [];
+openRooms.push(new Room(1234));
+
+// handle the event that someone connects
+io.sockets.on('connection', newConnection);
+
+//starts the game loop
+setInterval(update, 33);
+
+// handle new connection being made given socket 
+function newConnection(socket){
+    console.log('new connection: ' + socket.id);
+
+    socket.on('loginAttempt', validateLogin);
+    
+
+    function validateLogin(data){
+        let errors = {
+            nameError: '',
+            roomError: '',
+            nameInput: data.name,
+            roomInput: data.roomCode
+        };
+        
+        let passedBasicChecks = true;
+        // check that the room code is valid
+        let roomCodeInt = parseInt(data.roomCode);
+        if(isNaN(roomCodeInt)){
+            errors.roomError = 'Room code must be a 4 digit number ';
+            passedBasicChecks = false;
+        }else if(roomCodeInt > 9999 || roomCodeInt < 1000 ){
+            errors.roomError = 'Room code must be a 4 digit number ';
+            passedBasicChecks = false;
+        }
+
+        // check that the player name is within bounds
+        if(data.name.length < 3 || data.name.length > 10){
+            errors.nameError = 'Name must be 3-10 characters long';
+            passedBasicChecks = false;
+        }
+        if(passedBasicChecks){
+            let foundRoom = false;
+            for(let i = 0; i < openRooms.length; i ++){
+               if(openRooms[i] == parseInt(data.roomCode)){
+                    foundRoom = true;
+                    // Check for duplicate names in room?
+               }
+            }
+            if(!foundRoom){
+                errors.roomError = 'That room does not exist';
             }
         }
-        // send the data about player locations to all players
-        io.sockets.emit('playerLocUpdate',data);
 
-        // if we have 1 or 0 players left the game is over
-        if(stillAlivePlayers < 2){
-            gameOver = true;
-            // we have a single winner
-            if(stillAlivePlayers == 1){
-                for(let i = 0; i < numPlayers; i++){
-                    if(!Connections[i].player.hasLost){
-                        // this is the winner
-                        io.to(Connections[i].id).emit('youWin');
-                    }else{
-                        // tell the others who won? host? specators?
-                    }
-                }
-            }else if (stillAlivePlayers == 0){
-                // we have a tie
-            }
+        // check for errors
+        // make this better??
+        if(errors.nameError != '' || errors.roomError != ''){
+            socket.emit('rejectLogin', errors);
+        }else{
+            // this should add them to the room and send back room data
+            socket.emit('successfulLogin', errors);
+        }
+        
+    }
+    
+
+    /*
+     some of the following is only needed if you are actually playing
+     there should be a check to see if we have reached the max num of 
+     players and after that you dont get to control anything. 
+     */
+/* THIS IS FOR WHEN I AM IMPLEMENTING THE GAME AGAIN
+    // create a new player and save connection info
+    thisPlayer = new Player(startingLocations[numPlayers].x,
+        startingLocations[numPlayers].y,
+        startingLocations[numPlayers].dir,
+        new Color( Math.floor(Math.random() * 255),
+        Math.floor(Math.random() * 255),
+        Math.floor(Math.random() * 255)));
+       
+    var node = {
+        id: socket.id,
+        socket: socket,
+        player: thisPlayer
+    };
+    
+    Connections[numPlayers] = node;
+  
+    let data = {
+        id: numPlayers
+    }
+
+    // tell the client to reset + give it its player number/id within the game
+    socket.emit('reset', data)
+
+    numPlayers++;
+
+    socket.on('input', handleInput);
+    
+
+    function handleInput(data){
+        // Make this better by using a has map with the socket id as the key
+        // need to use an id number to know which player sent this and wants to turn
+        Connections[data.id].player.turn(data.dir);
+    }
+
+    socket.on('ready', playerReadied);
+    function playerReadied(){
+        console.log("player readied");
+        readyPlayers ++;
+
+        if(readyPlayers== numPlayers && numPlayers > 1){// this should run once, when the game starts
+            stillAlivePlayers = numPlayers;
+            gameOver = false;
+            walls = [];
+            // the boundaries 
+            walls.push(new Wall(0,-10,500,10));
+            walls.push(new Wall(0, 500,500,10));
+            walls.push(new Wall(-10,0,10,500));
+            walls.push(new Wall(500,0,10,500));
+            io.sockets.emit('start');
         }
     }
+    */
+
+    // handle what we do if a client disconnects
+    socket.on('disconnect', function() {
+        
+        console.log('Client has disconnected');
+    });
 }
+
+
+// ping each room to update 
+function update(){
+    for(let i = 0; i < openRooms.length; i ++){
+        openRooms[i].update();
+    }
+}
+
+
+
+
+
+
 
