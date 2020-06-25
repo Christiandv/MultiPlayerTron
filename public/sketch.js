@@ -2,6 +2,8 @@ var socket;
 
 
 var id = 0;
+var roomCode = -1;
+var name = '';
 let backgroundColor;
 var started = false; 
 var hasLost = false;
@@ -105,14 +107,17 @@ function failedLogin(data){
 function successfulLogin(data){
     console.log('good login');
     // you have logged in, should recieve room code as confirmation
-
+    roomCode = data.roomInput;
+    name = data.nameInput;
     // clean up the main page stuff like deleting inputfields
     nameInput.remove();
     roomCodeInput.remove();
     submitButton.remove();
+    socket.off('rejectLogin', failedLogin);
+    socket.off('successfulLogin', successfulLogin);
     // set up listeners for the room info/readying
-
-
+    socket.on('roomDataUpdate', drawRoom);
+    socket.on('start', start);
 }
 
 
@@ -121,10 +126,21 @@ function successfulLogin(data){
 // draws the screen for when you are in a room but the game has not started
 function drawRoom(data){
     // draw background
-
+    background(backgroundColor);
     // draw banner, ready/readied
+    fill(255,165,0);
+    textSize(60);
+    text("In the room!", 80, 100);
 
     // show other players and whether or not they have readied up?
+    fill(255,165,0);
+    textSize(40);
+    text("Num Players: " + data.players.length, 80, 300);
+
+    fill(255,165,0);
+    textSize(40);
+    text("Num Spectators: " + data.spectators.length, 80, 400);
+
 }
 
 
