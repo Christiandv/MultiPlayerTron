@@ -56,6 +56,16 @@ class Room{
         this.game = new GameState(playerList);
     }
 
+    handleDisconnect(connectionId){
+        //handle the disconnect of the given connection
+        
+        // if player, do something with game state
+
+        // if spectator, just remove from list
+
+        // if host.... rip?
+    }
+
     update(){
         if(this.gameInProgress){
             this.game.update();
@@ -84,6 +94,23 @@ class GameState{
         this.walls.push(new Wall(0, 500,500,10));
         this.walls.push(new Wall(-10,0,10,500));
         this.walls.push(new Wall(500,0,10,500));
+        // do the following to init a player. Do for each playersocket given on game start
+/*
+        thisPlayer = new Player(startingLocations[numPlayers].x,
+            startingLocations[numPlayers].y,
+            startingLocations[numPlayers].dir,
+            new Color( Math.floor(Math.random() * 255),
+            Math.floor(Math.random() * 255),
+            Math.floor(Math.random() * 255)));
+            */
+        
+        // EMIT TO EACH PLAYER TO RESET THE GAME/START the GAME
+    }
+
+    handleDisconnect(connectionId){
+        //handle the disconnect of the given connection
+        
+        // if player, do something with game stae
     }
 
     // update loop for the game, should expand to include all current games
@@ -249,8 +276,7 @@ console.log("My socket server is running");
 
 var io = socket(server);
 
-// lots of set up, will probably end up in a "game" object
-// so that we can separate out into rooms 
+// the list of connections made, so you can route to the correct room quickly
 var Connections = [];
 
 var openRooms = [];
@@ -312,75 +338,49 @@ function newConnection(socket){
             socket.emit('rejectLogin', errors);
         }else{
             // this should add them to the room and send back room data
+            // add them to the list of connections
+            var node = {
+                id: socket.id,
+                socket: socket,
+                roomNum: roomCodeInt
+            };
+            Connections[numPlayers] = node;
+            
             socket.emit('successfulLogin', errors);
+            socket.on('input', handleInput);
         }
         
     }
-    
 
-    /*
-     some of the following is only needed if you are actually playing
-     there should be a check to see if we have reached the max num of 
-     players and after that you dont get to control anything. 
-     */
-/* THIS IS FOR WHEN I AM IMPLEMENTING THE GAME AGAIN
-    // create a new player and save connection info
-    thisPlayer = new Player(startingLocations[numPlayers].x,
-        startingLocations[numPlayers].y,
-        startingLocations[numPlayers].dir,
-        new Color( Math.floor(Math.random() * 255),
-        Math.floor(Math.random() * 255),
-        Math.floor(Math.random() * 255)));
-       
-    var node = {
-        id: socket.id,
-        socket: socket,
-        player: thisPlayer
-    };
-    
-    Connections[numPlayers] = node;
-  
-    let data = {
-        id: numPlayers
-    }
 
-    // tell the client to reset + give it its player number/id within the game
-    socket.emit('reset', data)
-
-    numPlayers++;
-
-    socket.on('input', handleInput);
+   
     
 
     function handleInput(data){
         // Make this better by using a has map with the socket id as the key
         // need to use an id number to know which player sent this and wants to turn
-        Connections[data.id].player.turn(data.dir);
+        //Connections[data.id].player.turn(data.dir);
+
+        // check the socketid
+
+        // look up that conneciton in the map
+
+        // find the correct Room where that person is
+
+        // hand off the input you got from the signal to the room,
+        // telling it which connection did so
     }
 
-    socket.on('ready', playerReadied);
-    function playerReadied(){
-        console.log("player readied");
-        readyPlayers ++;
-
-        if(readyPlayers== numPlayers && numPlayers > 1){// this should run once, when the game starts
-            stillAlivePlayers = numPlayers;
-            gameOver = false;
-            walls = [];
-            // the boundaries 
-            walls.push(new Wall(0,-10,500,10));
-            walls.push(new Wall(0, 500,500,10));
-            walls.push(new Wall(-10,0,10,500));
-            walls.push(new Wall(500,0,10,500));
-            io.sockets.emit('start');
-        }
-    }
-    */
+    
 
     // handle what we do if a client disconnects
     socket.on('disconnect', function() {
-        
-        console.log('Client has disconnected');
+        console.log('Client has disconnected. id: ' + socket.id);
+        // look up the socket id in the conneciton table
+
+        // go to the room and tell them that the player disconnected
+
+        // remove them from the connections list
     });
 }
 
