@@ -60,14 +60,17 @@ class Room {
                 this.game.handleInput(connectionId, data);
            }else{
                // the game is not in progress, the player is declaring they are ready
-               this.playerList.set(connectionId, { 
-                clientData: this.playerList.get(connectionId).clientData,
-                readyCheck: true});
-                this.emitData();
-                if(!this.countingDown){
-                    this.countingDown = true;
-                    this.countdown(3);
-                }
+               if(!this.playerList.get(connectionId).readyCheck){
+                this.playerList.set(connectionId, { 
+                    clientData: this.playerList.get(connectionId).clientData,
+                    readyCheck: true});
+                    this.emitData();
+                    if(!this.countingDown){
+                        this.countingDown = true;
+                        this.countdown(3);
+                    }
+               }
+               
            }
         }          
     }
@@ -411,20 +414,22 @@ class Player {
 
 
 
+
 //var roomController = require('./roomController.js');
 var express = require('express'); // the express library
 var socket = require('socket.io'); // everything for the socket library
 var app = express();
+const path = require('path')
 
 
-const PORT =/* process.env.PORT || */5000
+const PORT = 5000
 
 console.log("listening on port: " + PORT);
 // starts the server listening on port 
 var server = app.listen(PORT);
 
 // serve up the public folder
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 // test 
 console.log("My socket server is running");
 
