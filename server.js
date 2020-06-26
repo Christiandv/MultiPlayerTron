@@ -31,44 +31,81 @@ class Color {
 
 // data we want to hold about a client, used after they have actually logged in
 class Client {
-    constructor(socket, name, roomNumber) {
+    constructor(socket, name, roomCode) {
         this.socket = socket;
         this.name = name;
-        this.roomNumber = roomNumber;
+        this.roomCode = roomCode;
     }
 }
 
 // the data that a room needs to have
 // TODO: HOSTS
 class Room {
-    constructor(roomNumber/*, host*/) {
-        this.roomNumber = roomNumber;
+    constructor(roomCode/*, host*/) {
+        this.roomCode = roomCode;
         this.playerList = new Map(); // id -> {clientData, readyCheck}
         this.spectators = new Map(); // id -> ClientData
         // this.host = host; // the host of this room 
         this.gameInProgress = false;
+        this.countingDown = false;
     }
-    static MAX_PLAYERS = 4;
+    static MAX_PLAYERS = 2;
 
 
     handleInput(connectionId, data){
         if(this.playerList.has(connectionId)){
             if(this.gameInProgress){
                 // send the data to the game object
+                console.log("handing off input to game");
+                this.game.handleInput(connectionId, data);
            }else{
                // the game is not in progress, the player is declaring they are ready
                this.playerList.set(connectionId, { 
                 clientData: this.playerList.get(connectionId).clientData,
                 readyCheck: true});
                 this.emitData();
+                if(!this.countingDown){
+                    this.countingDown = true;
+                    this.countdown(3);
+                }
            }
-        }        
-        
+        }          
+    }
+
+    countdown(num){
+        let gtg = true;
+        if(this.playerList.size < 2){
+            gtg = false;
+        } 
+        for(const player of this.playerList.values()){
+            if(!player.readyCheck){
+                gtg = false;
+                
+            }
+        }
+        if(gtg){
+            
+            console.log(num);
+            io.sockets.in("room-"+this.roomCode).emit('countdown', num);
+            
+            if(num > 0){
+                setTimeout((n) => {this.countdown(n)}, 1000, num - 1);
+            }else if( num == 0){
+                // the game starts
+                this.gameInProgress = true;
+                // tell everyone that the game has started
+                io.sockets.in("room-"+this.roomCode).emit('start');
+                // setup the game data
+                this.game = new GameState(this.playerList.values(), this.roomCode);
+            }
+        }else{
+            this.countingDown = false;
+        }
     }
 
 
     newConnection(clientData){
-        console.log('Room ' + this.roomNumber + ' recieved client: ' + clientData.socket.id );
+        console.log('Room ' + this.roomCode + ' recieved client: ' + clientData.socket.id );
         if(this.playerList.size < Room.MAX_PLAYERS){
             // we have space, make them a player
         
@@ -76,28 +113,34 @@ class Room {
                 clientData: clientData,
                 readyCheck:false
             });
+
+            for (let player of this.playerList.values()) {
+                player.readyCheck = false;
+            }
+            clientData.socket.emit("IsPlayer", true);
         }else{
             // we do not have space, make them a spectator
             this.spectators.set(clientData.socket.id, clientData);
+            clientData.socket.emit("IsPlayer", false);
         }
-        clientData.socket.join("room-"+this.roomNumber);
+        clientData.socket.join("room-"+this.roomCode);
+        // TODO tell people which group they are in?
         this.emitData();
-    }
-
-    newGame() {
-        this.game = new GameState(playerList);
     }
 
     handleDisconnect(connectionId) {
         //handle the disconnect of the given connection
         // Do we need to unsubscribe them from the room?
-        connections.get(connectionId).socket.leave("room-"+this.roomNumber);
+        connections.get(connectionId).socket.leave("room-"+this.roomCode);
         // if player, do something with game state
         if(this.playerList.has(connectionId)){
-            console.log('Room ' + this.roomNumber + " removing player " + connectionId)
+            console.log('Room ' + this.roomCode + " removing player " + connectionId)
             if(!this.gameInProgress){
                 // easy to remove if we arent actually playing
                 this.playerList.delete(connectionId);
+                for (let player of this.playerList.values()) {
+                    player.readyCheck = false;
+                }
             }else{
                 // TODO need to figure out what happens here
                 
@@ -105,8 +148,8 @@ class Room {
         }
         // if spectator, just remove from list
         else if(this.spectators.has(connectionId)){
-            console.log('Room ' + this.roomNumber + " removing spectator " + connectionId)
-            spectators.delete(connectionId);
+            console.log('Room ' + this.roomCode + " removing spectator " + connectionId)
+            this.spectators.delete(connectionId);
         }
         // if host.... rip? TODO
         this.emitData();
@@ -114,6 +157,7 @@ class Room {
 
     update() {
         if (this.gameInProgress) {
+            //console.log("tell game to update");
             this.game.update();
         }
     }
@@ -123,7 +167,8 @@ class Room {
         for (const playerData of this.playerList.values()) {
             currentPlayers.push({
                 name:playerData.clientData.name,
-                ready:playerData.ready
+                id:playerData.clientData.socket.id,
+                ready:playerData.readyCheck
             });
         }
 
@@ -137,7 +182,17 @@ class Room {
             players:currentPlayers,
             spectators:currentSpectators
         };
-        io.sockets.in("room-"+this.roomNumber).emit('roomDataUpdate', data);
+        io.sockets.in("room-"+this.roomCode).emit('roomDataUpdate', data);
+    }
+
+    resetAfterGame(){
+        io.sockets.in("room-"+this.roomCode).emit('gameOver');
+        this.gameInProgress = false;
+        for (let player of this.playerList.values()) {
+            player.readyCheck = false;
+        }
+        this.countingDown = false;
+        this.emitData();
     }
 }
 
@@ -151,11 +206,25 @@ class GameState {
         { x: 100, y: 400, dir: 1 },
         { x: 400, y: 400, dir: 2 }];
 
-    constructor(players) {
-        // want map of socketId -> player data
-        this.numPlayers = players.length;
-        this.readyPlayers = 0;
-        this.stillAlivePlayers = players.length;
+    constructor(playersFromRoom, roomCode) {
+        
+        this.roomCode = roomCode;
+        this.players = new Map();
+        
+        let i = 0;
+        for(const p of playersFromRoom){
+            this.players.set(p.clientData.socket.id,
+                {
+                    clientData: p.clientData,
+                    gameData: new Player(GameState.startingLocations[i].x,
+                        GameState.startingLocations[i].y,
+                        GameState.startingLocations[i].dir,
+                        new Color( Math.floor(Math.random() * 255),
+                        Math.floor(Math.random() * 255),
+                        Math.floor(Math.random() * 255)))
+                });
+                i ++;
+        }
         this.gameOver = false;
 
         this.walls = [];
@@ -163,81 +232,89 @@ class GameState {
         this.walls.push(new Wall(0, 500, 500, 10));
         this.walls.push(new Wall(-10, 0, 10, 500));
         this.walls.push(new Wall(500, 0, 10, 500));
-        // do the following to init a player. Do for each playersocket given on game start
-        /*
-                thisPlayer = new Player(startingLocations[numPlayers].x,
-                    startingLocations[numPlayers].y,
-                    startingLocations[numPlayers].dir,
-                    new Color( Math.floor(Math.random() * 255),
-                    Math.floor(Math.random() * 255),
-                    Math.floor(Math.random() * 255)));
-                    */
-
-        // EMIT TO EACH PLAYER TO RESET THE GAME/START the GAME
+        console.log("game setup")
     }
     
     handleInput(connectionId, data){
         // find the player in the map and turn them
+        this.players.get(connectionId).gameData.turn(data.dir);
+        console.log("Game got input");
     }
 
     handleDisconnect(connectionId) {
+        // TODO
         //handle the disconnect of the given connection
 
-        // if player, do something with game stae
+        // if player, do something with game state
     }
 
     // update loop for the game, should expand to include all current games
     update() {
-        if (readyPlayers == numPlayers && numPlayers != 0 && !gameOver) {
+        if (!this.gameOver) {
+            console.log("game actually being played");
             // the game is being played
             let data = [];
-            for (let i = 0; i < numPlayers; i++) {
+            for (let p of this.players.values()) {
+                let curr = p.gameData;
                 // only move and stuff if you are still in play
-                if (!connections[i].player.hasLost) {
-                    connections[i].player.move();
+                if (curr.isAlive) {
+                    curr.move();
                     // check collisions
-                    for (var j = 0; j < walls.length; j++) {
-                        if (connections[i].player.collide(walls[j])) {
-                            connections[i].player.hasLost = true;
-                            io.to(connections[i].id).emit('youLost');
-                            stillAlivePlayers--;
+                    for (var j = 0; j < this.walls.length; j++) {
+                        if (curr.collide(this.walls[j])) {
+                            curr.isAlive = false;
+                            p.clientData.socket.emit('youLost');
                         }
                     }
                     // make the wall behind you
-                    walls.push(new Wall(connections[i].player.x,
-                        connections[i].player.y,
-                        connections[i].player.size,
-                        connections[i].player.size));
+                    this.walls.push(new Wall(curr.x,
+                        curr.y,
+                        curr.size,
+                        curr.size));
 
                     // add data about character location/color to data packet
-                    var p = {
-                        x: connections[i].player.x,
-                        y: connections[i].player.y,
-                        size: connections[i].player.size,
-                        color: connections[i].player.color.packageUp()
+                    let pData = {
+                        x: curr.x,
+                        y: curr.y,
+                        size: curr.size,
+                        color: curr.color.packageUp()
                     };
-                    data.push(p);
+                    data.push(pData);
                 }
             }
+            console.log("sending out game update")
             // send the data about player locations to all players
-            io.sockets.emit('playerLocUpdate', data);
+            io.sockets.in("room-"+this.roomCode).emit( 'playerLocUpdate', data);
 
             // if we have 1 or 0 players left the game is over
+            let stillAlivePlayers = 0;
+            for(let p of this.players.values()){
+                if(p.gameData.isAlive){
+                    stillAlivePlayers++;
+                }
+            }
             if (stillAlivePlayers < 2) {
-                gameOver = true;
+                this.gameOver = true;
                 // we have a single winner
                 if (stillAlivePlayers == 1) {
-                    for (let i = 0; i < numPlayers; i++) {
-                        if (!connections[i].player.hasLost) {
-                            // this is the winner
-                            io.to(connections[i].id).emit('youWin');
-                        } else {
-                            // tell the others who won? host? specators?
-                        }
-                    }
+                   // someone won
+                   for(let p of this.players.values()){
+                       if(p.gameData.isAlive){
+                            let winner = {
+                                id:p.clientData.socket.id,
+                                name:p.clientData.name,
+                                color:p.gameData.color.packageUp()
+                            }
+                            io.sockets.in("room-"+this.roomCode).emit( 'winner', winner);
+                       }
+                   }
+                    
                 } else if (stillAlivePlayers == 0) {
                     // we have a tie
+                    
                 }
+                // reset the game
+                setTimeout(() => {openRooms.get(this.roomCode).resetAfterGame()}, 5000);
             }
         }
     }
@@ -255,26 +332,28 @@ class Player {
         this.color = color;
         this.x = x;
         this.y = y;
+        this.speed = 3;
 
         switch (direction) {
             case 0:
-                this.xspeed = speed;
+                this.xspeed = this.speed;
                 this.yspeed = 0;
                 break;
             case 1:
                 this.xspeed = 0;
-                this.yspeed = -1 * speed;
+                this.yspeed = -1 * this.speed;
                 break;
             case 2:
-                this.xspeed = -1 * speed;
+                this.xspeed = -1 * this.speed;
                 this.yspeed = 0;
                 break;
             case 3:
                 this.xspeed = 0;
-                this.yspeed = speed;
+                this.yspeed = this.speed;
                 break;
         }
         this.size = 3; // radius of player 
+        this.isAlive = true;
         // we are drawing players like normal rectangles, from top left
 
     }
@@ -302,26 +381,26 @@ class Player {
         switch (direction) {
             case 0:
                 if (this.xspeed == 0) {
-                    this.xspeed = speed;
+                    this.xspeed = this.speed;
                     this.yspeed = 0;
                 }
                 break;
             case 1:
                 if (this.yspeed == 0) {
                     this.xspeed = 0;
-                    this.yspeed = -1 * speed;
+                    this.yspeed = -1 * this.speed;
                 }
                 break;
             case 2:
                 if (this.xspeed == 0) {
-                    this.xspeed = -1 * speed;
+                    this.xspeed = -1 * this.speed;
                     this.yspeed = 0;
                 }
                 break;
             case 3:
                 if (this.yspeed == 0) {
                     this.xspeed = 0;
-                    this.yspeed = speed;
+                    this.yspeed = this.speed;
                 }
                 break;
         }
@@ -409,7 +488,11 @@ function newConnection(socket) {
             let newConnection = new Client(socket, data.name, roomCodeInt);
             connections.set(socket.id, newConnection); 
             errors.roomInput = roomCodeInt;
-            socket.emit('successfulLogin', errors);
+            socket.emit('successfulLogin', {
+                room: roomCodeInt,
+                name: data.name,
+                id: socket.id
+            });
             openRooms.get(roomCodeInt).newConnection(newConnection);
             socket.on('input', handleInput);
         }
@@ -421,18 +504,15 @@ function newConnection(socket) {
 
 
     function handleInput(data) {
-        // Make this better by using a has map with the socket id as the key
-        // need to use an id number to know which player sent this and wants to turn
-        //connections[data.id].player.turn(data.dir);
-
         // check the socketid
-
+        let conId = socket.id;
         // look up that connection in the map
-
+        let client = connections.get(conId);
         // find the correct Room where that person is
-
+        let roomCode = client.roomCode;
         // hand off the input you got from the signal to the room,
         // telling it which connection did so
+        openRooms.get(roomCode).handleInput(conId, data);
     }
 
 
@@ -443,7 +523,7 @@ function newConnection(socket) {
         // look up the socket id in the conneciton table
         if(connections.has(socket.id)){
             // go to the room and tell them that the player disconnected
-            let roomid = connections.get(socket.id).roomNumber;
+            let roomid = connections.get(socket.id).roomCode;
             openRooms.get(roomid).handleDisconnect(socket.id);
             // remove them from the connections list
             connections.delete(socket.id);
@@ -455,8 +535,8 @@ function newConnection(socket) {
 
 // ping each room to update 
 function update() {
-    for (let i = 0; i < openRooms.length; i++) {
-        openRooms[i].update();
+    for (let room of openRooms.values()) {
+       room.update();
     }
 }
 
