@@ -25,7 +25,7 @@ function setup() {
     background(backgroundColor);
 
     // actually connect from client side, need to update when not running locally
-    socket = io.connect('http://127.0.0.1:3000');
+    socket = io.connect('http://127.0.0.1:5000');
 
     currentPage = 'MainPage';
 

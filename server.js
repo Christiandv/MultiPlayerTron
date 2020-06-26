@@ -251,7 +251,7 @@ class GameState {
     // update loop for the game, should expand to include all current games
     update() {
         if (!this.gameOver) {
-            console.log("game actually being played");
+            //console.log("game actually being played");
             // the game is being played
             let data = [];
             for (let p of this.players.values()) {
@@ -282,7 +282,7 @@ class GameState {
                     data.push(pData);
                 }
             }
-            console.log("sending out game update")
+            //console.log("sending out game update")
             // send the data about player locations to all players
             io.sockets.in("room-"+this.roomCode).emit( 'playerLocUpdate', data);
 
@@ -417,9 +417,9 @@ var socket = require('socket.io'); // everything for the socket library
 var app = express();
 
 
-
+const PORT = process.env.PORT || 5000
 // starts the server listening on port 3k
-var server = app.listen(3000);
+var server = app.listen(PORT);
 
 // serve up the public folder
 app.use(express.static('public'));
