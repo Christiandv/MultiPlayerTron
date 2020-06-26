@@ -417,7 +417,7 @@ var socket = require('socket.io'); // everything for the socket library
 var app = express();
 
 
-const PORT = process.env.PORT || 5000
+const PORT =/* process.env.PORT || */5000
 
 console.log("listening on port: " + PORT);
 // starts the server listening on port 
