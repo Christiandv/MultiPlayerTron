@@ -61,9 +61,7 @@ class Room {
            }else{
                // the game is not in progress, the player is declaring they are ready
                if(!this.playerList.get(connectionId).readyCheck){
-                this.playerList.set(connectionId, { 
-                    clientData: this.playerList.get(connectionId).clientData,
-                    readyCheck: true});
+                    this.playerList.get(connectionId).readyCheck = true;
                     this.emitData();
                     if(!this.countingDown){
                         this.countingDown = true;
@@ -114,7 +112,10 @@ class Room {
         
             this.playerList.set(clientData.socket.id, {
                 clientData: clientData,
-                readyCheck:false
+                readyCheck:false,
+                color: new Color( Math.floor(Math.random() * 255),
+                Math.floor(Math.random() * 255),
+                Math.floor(Math.random() * 255))
             });
 
             for (let player of this.playerList.values()) {
@@ -146,7 +147,8 @@ class Room {
                 }
             }else{
                 // TODO need to figure out what happens here
-                
+                this.playerList.delete(connectionId);
+                this.game.handleDisconnect(connectionId);
             }
         }
         // if spectator, just remove from list
@@ -171,7 +173,8 @@ class Room {
             currentPlayers.push({
                 name:playerData.clientData.name,
                 id:playerData.clientData.socket.id,
-                ready:playerData.readyCheck
+                ready:playerData.readyCheck,
+                color:playerData.color.packageUp()
             });
         }
 
@@ -191,6 +194,7 @@ class Room {
     resetAfterGame(){
         io.sockets.in("room-"+this.roomCode).emit('gameOver');
         this.gameInProgress = false;
+        //TODO pull in spectators?
         for (let player of this.playerList.values()) {
             player.readyCheck = false;
         }
@@ -222,9 +226,7 @@ class GameState {
                     gameData: new Player(GameState.startingLocations[i].x,
                         GameState.startingLocations[i].y,
                         GameState.startingLocations[i].dir,
-                        new Color( Math.floor(Math.random() * 255),
-                        Math.floor(Math.random() * 255),
-                        Math.floor(Math.random() * 255)))
+                        p.color)
                 });
                 i ++;
         }
@@ -245,10 +247,8 @@ class GameState {
     }
 
     handleDisconnect(connectionId) {
-        // TODO
-        //handle the disconnect of the given connection
-
-        // if player, do something with game state
+        //handle the disconnect of the given connection, the player loses
+        this.players.get(connectionId).gameData.isAlive = false;
     }
 
     // update loop for the game, should expand to include all current games
@@ -440,6 +440,7 @@ var connections = new Map();
 
 var openRooms = new Map();
 openRooms.set(1234, new Room(1234));
+openRooms.set(2020, new Room(2020));
 
 
 // handle the event that someone connects

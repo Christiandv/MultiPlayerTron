@@ -141,10 +141,11 @@ function drawRoom(data) {
     textSize(60);
     text("In the room!", 80, 100);
     // show other players and whether or not they have readied up
-    fill(255, 255, 255);
+    
     textSize(20);
     let y = isPlayer ? 250 : 200;
     for (const player of data.players) {
+        fill(player.color.r, player.color.g, player.color.b);
         if (player.id == id && isPlayer) {
             // this is client
             text('' + player.name + (player.ready ? " Ready!" : ""), 80, 200);
@@ -244,17 +245,17 @@ function draw() {
 
 function keyPressed() {
 
-    console.log("sending input");
-    if (keyCode === LEFT_ARROW) {
+    console.log("sending input "+ key);
+    if (keyCode === LEFT_ARROW || key === 'a') {
         var direction = 2;
 
-    } else if (keyCode === RIGHT_ARROW) {
+    } else if (keyCode === RIGHT_ARROW|| key === 'd') {
         var direction = 0;
 
-    } else if (keyCode === UP_ARROW) {
+    } else if (keyCode === UP_ARROW|| key === 'w') {
         var direction = 1;
 
-    } else if (keyCode === DOWN_ARROW) {
+    } else if (keyCode === DOWN_ARROW|| key === 's') {
         var direction = 3;
 
     }
