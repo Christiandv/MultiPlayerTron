@@ -424,9 +424,9 @@ const path = require('path')
 
 const PORT = process.env.PORT || 5000
 
-console.log("listening on port: " + PORT);
+
 // starts the server listening on port 
-var server = app.listen(PORT);
+var server = app.listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 // serve up the public folder
 app.use(express.static(path.join(__dirname, 'public')));
