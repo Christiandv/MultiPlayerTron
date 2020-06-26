@@ -167,6 +167,7 @@ class Room {
         }
     }
 
+    // sends update data to all participants
     emitData(){
         let currentPlayers = []
         for (const playerData of this.playerList.values()) {
@@ -242,8 +243,10 @@ class GameState {
     
     handleInput(connectionId, data){
         // find the player in the map and turn them
-        this.players.get(connectionId).gameData.turn(data.dir);
-        console.log("Game got input");
+        if(this.players.has(connectionId)){
+            this.players.get(connectionId).gameData.turn(data.dir);
+            console.log("Game got input");
+        }
     }
 
     handleDisconnect(connectionId) {
