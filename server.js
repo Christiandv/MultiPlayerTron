@@ -109,13 +109,29 @@ class Room {
         console.log('Room ' + this.roomCode + ' recieved client: ' + clientData.socket.id );
         if(this.playerList.size < Room.MAX_PLAYERS){
             // we have space, make them a player
-        
+            
+            // Colors that will always be visible on the screen
+            // Retrieved from https://www.cs.rit.edu/~ncs/color/t_convert.html
+            var R, G, B, f, p, q, t, hI, H, s, v;
+            H = Math.random() * 360; s = 0.5; v = 1;
+            H /= 60;     
+            hI = Math.floor(H);
+            f = H - hI;     
+            p = v * ( 1 - s );
+            q = v * ( 1 - s * f );
+            t = v * ( 1 - s * ( 1 - f ) );
+            if (hI == 0) {R = v; G = t; B = p;}
+            else if (hI == 1) {R = q; G = v; B = p;}
+            else if (hI == 2) {R = p; G = v; B = t;}
+            else if (hI == 3) {R = p; G = q; B = v;}
+            else if (hI == 4) {R = t; G = p; B = v;}
+            else {R = v; G = p; B = q;}
+            R *= 255; G *= 255; B *= 255; 
+
             this.playerList.set(clientData.socket.id, {
                 clientData: clientData,
                 readyCheck:false,
-                color: new Color( Math.floor(Math.random() * 255),
-                Math.floor(Math.random() * 255),
-                Math.floor(Math.random() * 255))
+                color: new Color( R, G, B )
             });
 
             for (let player of this.playerList.values()) {
@@ -233,10 +249,10 @@ class GameState {
         this.gameOver = false;
 
         this.walls = [];
-        this.walls.push(new Wall(0, -10, 500, 10));
-        this.walls.push(new Wall(0, 500, 500, 10));
-        this.walls.push(new Wall(-10, 0, 10, 500));
-        this.walls.push(new Wall(500, 0, 10, 500));
+        //this.walls.push(new Wall(0, -10, 500, 10));
+        //this.walls.push(new Wall(0, 500, 500, 10));
+        //this.walls.push(new Wall(-10, 0, 10, 500));
+        //this.walls.push(new Wall(500, 0, 10, 500));
         console.log("game setup")
     }
     
@@ -335,7 +351,7 @@ class Player {
         this.color = color;
         this.x = x;
         this.y = y;
-        this.speed = 3;
+        this.speed = 1; // Had to change this and size otherwise the looping would get confusing
 
         switch (direction) {
             case 0:
@@ -355,7 +371,7 @@ class Player {
                 this.yspeed = this.speed;
                 break;
         }
-        this.size = 3; // radius of player 
+        this.size = 1; // radius of player 
         this.isAlive = true;
         // we are drawing players like normal rectangles, from top left
 
@@ -377,6 +393,10 @@ class Player {
     move() {
         this.x += this.xspeed;
         this.y += this.yspeed;
+        if (this.x > 500) { this.x = 0; } // Makes the Taurus possible
+        if (this.x < 0) { this.x = 500; }
+        if (this.y > 500) { this.y = 0; }
+        if (this.y < 0) { this.y = 500; }
     }
 
     // safe turning, 0 is right, 1 is up, 2 is left, 3 is down. Unit circle
@@ -447,7 +467,7 @@ openRooms.set(2020, new Room(2020));
 io.sockets.on('connection', newConnection);
 
 //starts the game loop
-setInterval(update, 33);
+setInterval(update, 11);
 
 // handle new connection being made given socket 
 function newConnection(socket) {
