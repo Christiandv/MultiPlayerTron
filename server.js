@@ -418,7 +418,9 @@ var app = express();
 
 
 const PORT = process.env.PORT || 5000
-// starts the server listening on port 3k
+
+console.log("listening on port: " + PORT);
+// starts the server listening on port 
 var server = app.listen(PORT);
 
 // serve up the public folder
