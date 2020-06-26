@@ -107,7 +107,7 @@ class Room {
 
     newConnection(clientData){
         console.log('Room ' + this.roomCode + ' recieved client: ' + clientData.socket.id );
-        if(this.playerList.size < Room.MAX_PLAYERS){
+        if(this.playerList.size < Room.MAX_PLAYERS && !this.gameInProgress){
             // we have space, make them a player
         
             this.playerList.set(clientData.socket.id, {
@@ -146,7 +146,7 @@ class Room {
                     player.readyCheck = false;
                 }
             }else{
-                // TODO need to figure out what happens here
+                
                 this.playerList.delete(connectionId);
                 this.game.handleDisconnect(connectionId);
             }
