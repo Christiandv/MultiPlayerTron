@@ -49,7 +49,7 @@ class Room {
         this.gameInProgress = false;
         this.countingDown = false;
     }
-    static MAX_PLAYERS = 2;
+    static MAX_PLAYERS = 4;
 
 
     handleInput(connectionId, data){
@@ -422,7 +422,7 @@ var app = express();
 const path = require('path')
 
 
-const PORT = 5000
+const PORT = process.env.PORT || 5000
 
 console.log("listening on port: " + PORT);
 // starts the server listening on port 
