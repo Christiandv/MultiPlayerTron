@@ -383,7 +383,8 @@ class Player {
     }
 
     // safe turning, 0 is right, 1 is up, 2 is left, 3 is down. Unit circle
-    turn(direction) {
+    turn(direction) { 
+        // TODO make it so that you cannot turn back on yourselve between updates
         switch (direction) {
             case 0:
                 if (this.xspeed == 0) {
